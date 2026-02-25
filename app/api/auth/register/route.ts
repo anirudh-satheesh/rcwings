@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
 
@@ -22,9 +23,11 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // --- Check for existing user ---
+        const normalizedEmail = email.trim().toLowerCase();
+
+        // --- Fast-path UX check for existing user ---
         const existingUser = await prisma.user.findUnique({
-            where: { email: email.toLowerCase() },
+            where: { email: normalizedEmail },
         });
 
         if (existingUser) {
@@ -39,7 +42,7 @@ export async function POST(req: NextRequest) {
 
         const user = await prisma.user.create({
             data: {
-                email: email.toLowerCase(),
+                email: normalizedEmail,
                 password: hashedPassword,
             },
             select: {
@@ -55,7 +58,20 @@ export async function POST(req: NextRequest) {
             { status: 201 }
         );
     } catch (error) {
-        console.error("[REGISTER ERROR]", error);
+        // Handle race condition: another request created the same email between
+        // our findUnique check and the create call.
+        if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === "P2002"
+        ) {
+            return NextResponse.json(
+                { message: "An account with this email already exists." },
+                { status: 409 }
+            );
+        }
+
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error("[REGISTER ERROR]", message);
         return NextResponse.json(
             { message: "Internal server error." },
             { status: 500 }

@@ -13,7 +13,12 @@ function createPrismaClient() {
 
     // Prisma v7 requires a Driver Adapter for direct DB connections.
     // PrismaPg accepts a pg.PoolConfig object.
-    const adapter = new PrismaPg({ connectionString });
+    const adapter = new PrismaPg({
+        connectionString,
+        // Neon and other hosted providers use certs that fail strict SSL
+        // validation. Set rejectUnauthorized: false for compatibility.
+        ssl: { rejectUnauthorized: false },
+    });
 
     return new PrismaClient({
         adapter,

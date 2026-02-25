@@ -1,26 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/lib/verifyToken";
+import { authenticate } from "@/lib/authenticate";
 
 export async function GET(req: NextRequest) {
     try {
-        const authHeader = req.headers.get("authorization");
+        const auth = authenticate(req);
+        if (auth.error) return auth.error;
 
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json(
-                { message: "Unauthorized: No token provided." },
-                { status: 401 }
-            );
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = verifyToken(token);
-
-        if (!decoded) {
-            return NextResponse.json(
-                { message: "Unauthorized: Invalid or expired token." },
-                { status: 401 }
-            );
-        }
+        const { decoded } = auth;
 
         return NextResponse.json(
             {
@@ -33,7 +19,8 @@ export async function GET(req: NextRequest) {
             { status: 200 }
         );
     } catch (error) {
-        console.error("[PROTECTED ERROR]", error);
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error("[PROTECTED ERROR]", message);
         return NextResponse.json(
             { message: "Internal server error." },
             { status: 500 }
