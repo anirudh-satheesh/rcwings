@@ -6,7 +6,9 @@ export class ApiError extends Error {
         super(message);
         this.statusCode = statusCode;
         this.errors = errors;
-        Error.captureStackTrace(this, this.constructor);
+        if (typeof Error.captureStackTrace === "function") {
+            Error.captureStackTrace(this, this.constructor);
+        }
     }
 
     static badRequest(message: string = "Bad Request", errors?: any) {

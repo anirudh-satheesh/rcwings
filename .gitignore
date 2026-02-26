@@ -40,6 +40,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-/app/generated/prisma
-
-PROGRESS_LOG.md
+# progress log
+**/PROGRESS_LOG.md

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { ProjectStatus } from "@prisma/client";
+import { ProjectStatus, Prisma } from "@prisma/client";
 
 export class ProjectService {
     /**
@@ -14,7 +14,7 @@ export class ProjectService {
         const { userId, page, limit, status } = params;
         const skip = (page - 1) * limit;
 
-        const where: any = { userId };
+        const where: Prisma.ProjectWhereInput = { userId };
         if (status) where.status = status;
 
         const [projects, total] = await Promise.all([
@@ -76,22 +76,27 @@ export class ProjectService {
         description?: string;
         status?: ProjectStatus;
     }) {
-        return prisma.project.update({
-            where: { id: params.id },
+        const project = await prisma.project.update({
+            where: { id: params.id, userId: params.userId },
             data: {
                 title: params.title,
                 description: params.description,
                 status: params.status,
             },
         });
+
+        if (!project) {
+            throw new Error("Project not found or unauthorized");
+        }
+        return project;
     }
 
     /**
      * Delete a project.
      */
-    static async delete(id: string) {
+    static async delete(id: string, userId: string) {
         return prisma.project.delete({
-            where: { id },
+            where: { id, userId },
         });
     }
 }

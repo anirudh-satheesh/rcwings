@@ -13,7 +13,7 @@ export interface ApiResponse<T = any> {
     };
 }
 
-export function sendSuccess<T>(data: T, message?: string, statusCode = 200, meta?: any) {
+export function sendSuccess<T>(data: T, message?: string, statusCode = 200, meta?: ApiResponse<T>["meta"]) {
     return NextResponse.json(
         {
             success: true,

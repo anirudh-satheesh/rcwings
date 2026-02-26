@@ -57,10 +57,10 @@ export default function Home() {
             Start for free
           </Link>
           <Link
-            href="/login"
+            href="/dashboard"
             className="w-full sm:w-auto rounded-xl border border-zinc-800 bg-zinc-900/50 px-10 py-4 text-lg font-bold text-white hover:bg-zinc-800 transition-all hover:-translate-y-1"
           >
-            Vew Demo
+            View Demo
           </Link>
         </div>
       </main>

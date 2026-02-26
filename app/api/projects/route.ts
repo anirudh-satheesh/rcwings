@@ -4,7 +4,6 @@ import { sendSuccess } from "@/lib/utils/api-response";
 import { authenticate } from "@/lib/authenticate";
 import { projectCreateSchema, projectPaginationSchema } from "@/lib/validations/project.schema";
 import { ProjectService } from "@/lib/services/project.service";
-import { ApiError } from "@/lib/errors/api-error";
 
 /**
  * GET /api/projects

@@ -14,16 +14,23 @@ type AuthResult = AuthSuccess | AuthFailure;
  * Refactored to use the standardized error response format.
  */
 export function authenticate(req: NextRequest): AuthResult {
-    const authHeader = req.headers.get("authorization");
+    // 1. Try Cookie first (Recommended for web apps)
+    let token = req.cookies.get("token")?.value;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 2. Fallback to Authorization header
+    if (!token) {
+        const authHeader = req.headers.get("authorization");
+        if (authHeader?.startsWith("Bearer ")) {
+            token = authHeader.split(" ")[1];
+        }
+    }
+
+    if (!token) {
         return {
             decoded: null,
             error: sendError("Unauthorized: No token provided.", 401),
         };
     }
-
-    const token = authHeader.split(" ")[1];
 
     try {
         const decoded = verifyToken(token);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Script from "next/script";
@@ -19,7 +19,7 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const router = useRouter();
 
-    const handleGoogleResponse = async (response: any) => {
+    const handleGoogleResponse = useCallback(async (response: any) => {
         setGoogleLoading(true);
         setError("");
         try {
@@ -35,7 +35,7 @@ export default function LoginPage() {
                 throw new Error(json.message || "Google login failed");
             }
 
-            localStorage.setItem("token", json.data.token);
+            // Note: Token is now handled via HttpOnly cookie
             localStorage.setItem("user", JSON.stringify(json.data.user));
             router.push("/dashboard");
         } catch (err: any) {
@@ -43,21 +43,37 @@ export default function LoginPage() {
         } finally {
             setGoogleLoading(false);
         }
-    };
+    }, [router]);
 
-    useEffect(() => {
-        /* global google */
-        if (typeof window !== "undefined" && window.google) {
+    const initGoogleSignIn = useCallback(() => {
+        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+        if (!clientId) {
+            console.error("Google Client ID is missing.");
+            return;
+        }
+
+        if (window.google) {
             window.google.accounts.id.initialize({
-                client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+                client_id: clientId,
                 callback: handleGoogleResponse,
             });
-            window.google.accounts.id.renderButton(
-                document.getElementById("googleSignInButton"),
-                { theme: "outline", size: "large", width: "100%", text: "continue_with" }
-            );
+            const btnContainer = document.getElementById("googleSignInButton");
+            if (btnContainer) {
+                window.google.accounts.id.renderButton(btnContainer, {
+                    theme: "outline",
+                    size: "large",
+                    width: "100%",
+                    text: "continue_with",
+                });
+            }
         }
-    }, []);
+    }, [handleGoogleResponse]);
+
+    useEffect(() => {
+        if (typeof window !== "undefined" && window.google) {
+            initGoogleSignIn();
+        }
+    }, [initGoogleSignIn]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -77,7 +93,7 @@ export default function LoginPage() {
                 throw new Error(data.message || "Login failed");
             }
 
-            localStorage.setItem("token", data.data.token);
+            // Note: Token is now handled via HttpOnly cookie
             localStorage.setItem("user", JSON.stringify(data.data.user));
             router.push("/dashboard");
         } catch (err: any) {
@@ -92,18 +108,7 @@ export default function LoginPage() {
             <Script
                 src="https://accounts.google.com/gsi/client"
                 strategy="afterInteractive"
-                onLoad={() => {
-                    if (window.google) {
-                        window.google.accounts.id.initialize({
-                            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
-                            callback: handleGoogleResponse,
-                        });
-                        window.google.accounts.id.renderButton(
-                            document.getElementById("googleSignInButton"),
-                            { theme: "outline", size: "large", width: "100%", text: "continue_with" }
-                        );
-                    }
-                }}
+                onLoad={initGoogleSignIn}
             />
 
             <div className="w-full max-w-md space-y-8 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-8 shadow-2xl backdrop-blur-xl">

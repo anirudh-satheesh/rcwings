@@ -21,6 +21,16 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     // 2. Delegate to AuthService
     const result = await AuthService.googleLogin(idToken);
 
-    // 3. Return Standardized Response
-    return sendSuccess(result, "Google login successful.");
+    // 3. Return Standardized Response & Set Cookie
+    const res = sendSuccess({ user: result.user }, "Google login successful.");
+
+    res.cookies.set("token", result.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        path: "/",
+    });
+
+    return res;
 });

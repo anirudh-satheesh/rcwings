@@ -23,11 +23,6 @@ export const PUT = withErrorHandler(async (req: NextRequest, { params }: RoutePa
     // 1. Zod Validation
     const validatedData = projectUpdateSchema.parse(body);
 
-    // 2. Ownership & Existence Check
-    const project = await ProjectService.findById(id, auth.decoded.userId);
-    if (!project) {
-        throw ApiError.notFound("Project not found or you do not have permission.");
-    }
 
     // 3. Update via Service
     const updatedProject = await ProjectService.update({
@@ -48,14 +43,9 @@ export const DELETE = withErrorHandler(async (req: NextRequest, { params }: Rout
 
     const { id } = await params;
 
-    // 1. Ownership & Existence Check
-    const project = await ProjectService.findById(id, auth.decoded.userId);
-    if (!project) {
-        throw ApiError.notFound("Project not found or you do not have permission.");
-    }
 
     // 2. Delete via Service
-    await ProjectService.delete(id);
+    await ProjectService.delete(id, auth.decoded.userId);
 
     return sendSuccess(null, "Project deleted successfully.");
 });

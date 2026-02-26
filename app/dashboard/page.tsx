@@ -27,21 +27,22 @@ export default function DashboardPage() {
     const router = useRouter();
 
     const fetchProjects = useCallback(async (currentPage: number = 1) => {
-        const token = localStorage.getItem("token");
-        if (!token) {
-            router.push("/login");
-            return;
-        }
+        setError("");
+        setLoading(true);
 
         try {
             const res = await fetch(`/api/projects?page=${currentPage}&limit=6`, {
-                headers: { Authorization: `Bearer ${token}` },
+                headers: { "Content-Type": "application/json" },
+                // Use 'include' to send HttpOnly cookies
+                credentials: "include",
             });
 
             const json = await res.json();
 
             if (res.status === 401) {
-                localStorage.removeItem("token");
+                // Auth failed, clean up and redirect
+                setUser(null);
+                localStorage.removeItem("user");
                 router.push("/login");
                 return;
             }
@@ -71,7 +72,6 @@ export default function DashboardPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const token = localStorage.getItem("token");
         const method = editingId ? "PUT" : "POST";
         const url = editingId ? `/api/projects/${editingId}` : "/api/projects";
 
@@ -80,12 +80,17 @@ export default function DashboardPage() {
                 method,
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
                 },
+                credentials: "include",
                 body: JSON.stringify(formData),
             });
 
             const json = await res.json();
+
+            if (res.status === 401) {
+                handleLogout();
+                return;
+            }
 
             if (!res.ok) throw new Error(json.message || "Operation failed");
 
@@ -100,13 +105,18 @@ export default function DashboardPage() {
 
     const handleDelete = async (id: string) => {
         if (!confirm("Are you sure you want to delete this project?")) return;
-        const token = localStorage.getItem("token");
 
         try {
             const res = await fetch(`/api/projects/${id}`, {
                 method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
+
+            if (res.status === 401) {
+                handleLogout();
+                return;
+            }
+
             if (!res.ok) throw new Error("Delete failed");
             fetchProjects(page);
         } catch (err: any) {
@@ -115,18 +125,23 @@ export default function DashboardPage() {
     };
 
     const toggleStatus = async (project: Project) => {
-        const token = localStorage.getItem("token");
         const newStatus = project.status === "ACTIVE" ? "COMPLETED" : "ACTIVE";
 
         try {
             const res = await fetch(`/api/projects/${project.id}`, {
                 method: "PUT",
                 headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
                 },
+                credentials: "include",
                 body: JSON.stringify({ status: newStatus }),
             });
+
+            if (res.status === 401) {
+                handleLogout();
+                return;
+            }
+
             if (!res.ok) throw new Error("Update failed");
             fetchProjects(page);
         } catch (err: any) {
@@ -134,9 +149,14 @@ export default function DashboardPage() {
         }
     };
 
-    const handleLogout = () => {
-        localStorage.removeItem("token");
+    const handleLogout = async () => {
+        try {
+            await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+        } catch (e) {
+            console.error("Logout error:", e);
+        }
         localStorage.removeItem("user");
+        setUser(null);
         router.push("/login");
     };
 
@@ -213,15 +233,16 @@ export default function DashboardPage() {
                                         className="group relative flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 transition-all hover:border-zinc-700 hover:bg-zinc-900/60 hover:shadow-xl hover:shadow-black/20"
                                     >
                                         <div className="flex items-start justify-between">
-                                            <span
+                                            <button
                                                 onClick={() => toggleStatus(project)}
-                                                className={`cursor-pointer rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${project.status === "COMPLETED"
-                                                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                                        : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                                                className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-950 ${project.status === "COMPLETED"
+                                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 focus:ring-emerald-500"
+                                                    : "bg-blue-500/10 text-blue-400 border border-blue-500/20 focus:ring-blue-500"
                                                     }`}
+                                                aria-pressed={project.status === "COMPLETED"}
                                             >
                                                 {project.status}
-                                            </span>
+                                            </button>
                                             <div className="flex gap-2">
                                                 <button
                                                     onClick={() => {
@@ -230,6 +251,7 @@ export default function DashboardPage() {
                                                         setIsModalOpen(true);
                                                     }}
                                                     className="text-zinc-500 hover:text-white transition-colors"
+                                                    aria-label={`Edit ${project.title}`}
                                                 >
                                                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -238,6 +260,7 @@ export default function DashboardPage() {
                                                 <button
                                                     onClick={() => handleDelete(project.id)}
                                                     className="text-zinc-500 hover:text-red-400 transition-colors"
+                                                    aria-label={`Delete ${project.title}`}
                                                 >
                                                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -274,8 +297,8 @@ export default function DashboardPage() {
                                                 key={p}
                                                 onClick={() => fetchProjects(p)}
                                                 className={`h-10 w-10 rounded-lg text-sm font-bold transition-all ${p === page
-                                                        ? "bg-blue-600 text-white"
-                                                        : "bg-zinc-900 text-zinc-400 hover:text-white"
+                                                    ? "bg-blue-600 text-white"
+                                                    : "bg-zinc-900 text-zinc-400 hover:text-white"
                                                     }`}
                                             >
                                                 {p}
@@ -298,9 +321,14 @@ export default function DashboardPage() {
 
             {/* Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="modal-title"
+                >
                     <div className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
-                        <h2 className="text-2xl font-bold text-white">
+                        <h2 id="modal-title" className="text-2xl font-bold text-white">
                             {editingId ? "Edit Project" : "Create New Project"}
                         </h2>
                         <form onSubmit={handleSubmit} className="mt-6 space-y-4">

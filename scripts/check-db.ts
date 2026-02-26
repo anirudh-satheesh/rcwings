@@ -8,10 +8,15 @@ async function main() {
         const hasGoogleId = result.some((col: any) => col.column_name === 'googleId');
         const hasName = result.some((col: any) => col.column_name === 'name');
 
-        console.log('Has googleId:', hasGoogleId);
-        console.log('Has name:', hasName);
+        if (!hasGoogleId || !hasName) {
+            console.error('Critical Error: User table is missing required columns (googleId or name).');
+            process.exit(1);
+        }
+
+        console.log('Success: User table matches expected schema.');
     } catch (e) {
         console.error('Error checking columns:', e);
+        process.exit(1);
     } finally {
         await prisma.$disconnect();
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Script from "next/script";
@@ -19,7 +19,7 @@ export default function RegisterPage() {
     const [error, setError] = useState("");
     const router = useRouter();
 
-    const handleGoogleResponse = async (response: any) => {
+    const handleGoogleResponse = useCallback(async (response: any) => {
         setGoogleLoading(true);
         setError("");
         try {
@@ -35,7 +35,7 @@ export default function RegisterPage() {
                 throw new Error(json.message || "Google registration failed");
             }
 
-            localStorage.setItem("token", json.data.token);
+            // Note: Token is now handled via HttpOnly cookie
             localStorage.setItem("user", JSON.stringify(json.data.user));
             router.push("/dashboard");
         } catch (err: any) {
@@ -43,20 +43,37 @@ export default function RegisterPage() {
         } finally {
             setGoogleLoading(false);
         }
-    };
+    }, [router]);
+
+    const initGoogleSignIn = useCallback(() => {
+        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+        if (!clientId) {
+            console.error("Google Client ID is missing.");
+            return;
+        }
+
+        if (window.google) {
+            window.google.accounts.id.initialize({
+                client_id: clientId,
+                callback: handleGoogleResponse,
+            });
+            const btnContainer = document.getElementById("googleSignUpButton");
+            if (btnContainer) {
+                window.google.accounts.id.renderButton(btnContainer, {
+                    theme: "outline",
+                    size: "large",
+                    width: "100%",
+                    text: "signup_with",
+                });
+            }
+        }
+    }, [handleGoogleResponse]);
 
     useEffect(() => {
         if (typeof window !== "undefined" && window.google) {
-            window.google.accounts.id.initialize({
-                client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
-                callback: handleGoogleResponse,
-            });
-            window.google.accounts.id.renderButton(
-                document.getElementById("googleSignUpButton"),
-                { theme: "outline", size: "large", width: "100%", text: "signup_with" }
-            );
+            initGoogleSignIn();
         }
-    }, []);
+    }, [initGoogleSignIn]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -84,24 +101,17 @@ export default function RegisterPage() {
         }
     };
 
+    const hasGoogleClientId = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
     return (
         <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 font-sans text-zinc-100">
-            <Script
-                src="https://accounts.google.com/gsi/client"
-                strategy="afterInteractive"
-                onLoad={() => {
-                    if (window.google) {
-                        window.google.accounts.id.initialize({
-                            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
-                            callback: handleGoogleResponse,
-                        });
-                        window.google.accounts.id.renderButton(
-                            document.getElementById("googleSignUpButton"),
-                            { theme: "outline", size: "large", width: "100%", text: "signup_with" }
-                        );
-                    }
-                }}
-            />
+            {hasGoogleClientId && (
+                <Script
+                    src="https://accounts.google.com/gsi/client"
+                    strategy="afterInteractive"
+                    onLoad={initGoogleSignIn}
+                />
+            )}
 
             <div className="w-full max-w-md space-y-8 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-8 shadow-2xl backdrop-blur-xl">
                 <div className="text-center">
@@ -117,16 +127,20 @@ export default function RegisterPage() {
                     )}
 
                     {/* Google Sign Up Button Container */}
-                    <div id="googleSignUpButton" className="w-full overflow-hidden rounded-lg"></div>
+                    {hasGoogleClientId && (
+                        <div id="googleSignUpButton" className="w-full overflow-hidden rounded-lg"></div>
+                    )}
 
-                    <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-zinc-800"></span>
+                    {hasGoogleClientId && (
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t border-zinc-800"></span>
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-zinc-900 px-2 text-zinc-500">Or sign up with email</span>
+                            </div>
                         </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-zinc-900 px-2 text-zinc-500">Or sign up with email</span>
-                        </div>
-                    </div>
+                    )}
 
                     <form className="space-y-6" onSubmit={handleSubmit}>
                         <div className="space-y-4">

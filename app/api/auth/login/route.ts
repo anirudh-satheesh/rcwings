@@ -17,6 +17,16 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     // 2. Delegate Login Logic to Service
     const result = await AuthService.login(email, password);
 
-    // 3. Send Success Response
-    return sendSuccess(result, "Login successful.");
+    // 3. Send Success Response & Set Cookie
+    const res = sendSuccess({ user: result.user }, "Login successful.");
+
+    res.cookies.set("token", result.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        path: "/",
+    });
+
+    return res;
 });

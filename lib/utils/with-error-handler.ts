@@ -25,15 +25,23 @@ export function withErrorHandler(handler: Handler) {
                 return sendError("Validation Error", 400, error.issues);
             }
 
-            // Handle Prisma Unique Constraint specifically for convenience
+            // Handle Prisma Unique Constraint specifically
             if (error.code === "P2002") {
                 return sendError("Resource already exists", 409);
             }
 
+            // Handle Prisma Record Not Found (often ownership issues in our case)
+            if (error.code === "P2025") {
+                return sendError("Resource not found or unauthorized", 404);
+            }
+
+            // Log full error for production debugging
+            console.error(`[UNEXPECTED ERROR] ${req.nextUrl.pathname}:`, error);
+
             return sendError(
-                process.env.NODE_ENV === "development" ? message : "Internal Server Error",
+                "Internal Server Error",
                 500,
-                error
+                process.env.NODE_ENV === "development" ? error : undefined
             );
         }
     };
