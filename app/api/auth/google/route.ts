@@ -1,24 +1,28 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { withErrorHandler } from "@/lib/utils/with-error-handler";
 import { sendSuccess } from "@/lib/utils/api-response";
-import { loginSchema } from "@/lib/validations/auth.schema";
 import { AuthService } from "@/lib/services/auth.service";
+import { z } from "zod";
+
+const googleAuthSchema = z.object({
+    idToken: z.string().min(1, "Google ID token is required."),
+});
 
 /**
- * POST /api/auth/login
- * Refactored: Thin controller using Zod + AuthService + Global Error Handling.
+ * POST /api/auth/google
+ * Handles Google Login credential verification.
  */
 export const POST = withErrorHandler(async (req: NextRequest) => {
     const body = await req.json();
 
     // 1. Validate Input
-    const { email, password } = loginSchema.parse(body);
+    const { idToken } = googleAuthSchema.parse(body);
 
-    // 2. Delegate Login Logic to Service
-    const result = await AuthService.login(email, password);
+    // 2. Delegate to AuthService
+    const result = await AuthService.googleLogin(idToken);
 
-    // 3. Send Success Response & Set Cookie
-    const res = sendSuccess({ user: result.user }, "Login successful.");
+    // 3. Return Standardized Response & Set Cookie
+    const res = sendSuccess({ user: result.user }, "Google login successful.");
 
     res.cookies.set("token", result.token, {
         httpOnly: true,
